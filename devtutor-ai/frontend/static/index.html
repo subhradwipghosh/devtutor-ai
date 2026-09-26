@@ -301,6 +301,23 @@ function buildNode(id, comps, seen) {
       }
       const img = el("img", "a2img"); img.src = src; img.alt = boundStr(props.alt) || ""; return img;
     }
+    case "Video":
+    case "Media": {
+      const src = boundStr(props.url || props.src || props.videoUrl);
+      if (!src) return null;
+      const cleanUrl = src.replace(/[)\]."'\s]+$/, '');
+      const vid = el("video", "a2img");
+      vid.src = cleanUrl;
+      vid.controls = true;
+      vid.autoplay = true;
+      vid.muted = true;
+      vid.playsInline = true;
+      vid.style.maxHeight = "360px";
+      vid.style.width = "100%";
+      vid.style.borderRadius = "8px";
+      vid.style.marginTop = "8px";
+      return vid;
+    }
     case "Icon": {
       const s = el("span", "material-symbols-outlined"); s.textContent = iconName(boundStr(props.name) || props.name); return s;
     }
