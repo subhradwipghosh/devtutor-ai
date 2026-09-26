@@ -257,18 +257,48 @@ function buildNode(id, comps, seen) {
       kids().forEach(n => d.appendChild(n)); return d;
     }
     case "Text": {
-      const t = el("div", "a2text");
+      const txt = boundStr(props.text);
+      const mp4Match = txt.match(/https?:\/\/[^\s<>\)"']+\.mp4(?:\?[^\s<>\)"']*)?/i);
+      const wrap = el("div", "a2text");
       const hint = String(props.usageHint || "body").toLowerCase();
-      if (["h1", "h2", "h3", "h4", "h5", "h6"].includes(hint)) t.classList.add("a2-" + hint);
-      else if (hint === "caption") t.classList.add("a2-caption");
-      t.textContent = boundStr(props.text);
-      return t;
+      if (["h1", "h2", "h3", "h4", "h5", "h6"].includes(hint)) wrap.classList.add("a2-" + hint);
+      else if (hint === "caption") wrap.classList.add("a2-caption");
+      wrap.textContent = txt;
+
+      if (mp4Match) {
+        const cleanUrl = mp4Match[0].replace(/[)\]."'\s]+$/, '');
+        const vid = el("video", "a2img");
+        vid.src = cleanUrl;
+        vid.controls = true;
+        vid.autoplay = true;
+        vid.muted = true;
+        vid.playsInline = true;
+        vid.style.maxHeight = "360px";
+        vid.style.width = "100%";
+        vid.style.borderRadius = "8px";
+        vid.style.marginTop = "8px";
+        wrap.appendChild(vid);
+      }
+      return wrap;
     }
     case "Divider":
       return el("hr", "a2divider");
     case "Image": {
       const src = boundStr(props.url || props.src);
       if (!/^https?:\/\//i.test(src)) return null;
+      if (/\.mp4(?:\?.*)?$/i.test(src)) {
+        const cleanUrl = src.replace(/[)\]."'\s]+$/, '');
+        const vid = el("video", "a2img");
+        vid.src = cleanUrl;
+        vid.controls = true;
+        vid.autoplay = true;
+        vid.muted = true;
+        vid.playsInline = true;
+        vid.style.maxHeight = "360px";
+        vid.style.width = "100%";
+        vid.style.borderRadius = "8px";
+        return vid;
+      }
       const img = el("img", "a2img"); img.src = src; img.alt = boundStr(props.alt) || ""; return img;
     }
     case "Icon": {
@@ -337,26 +367,28 @@ function flattenText(messages) {
 
 function renderTextWithMedia(text, container) {
   if (!text) return;
-  const mp4Regex = /(https?:\/\/[^\s]+\.mp4)/ig;
-  const parts = text.split(mp4Regex);
-  parts.forEach(part => {
-    if (part.match(mp4Regex)) {
-      const vid = document.createElement("video");
-      vid.src = part;
-      vid.controls = true;
-      vid.autoplay = true;
-      vid.muted = true;
-      vid.playsInline = true;
-      vid.className = "a2img";
-      vid.style.maxHeight = "360px";
-      vid.style.width = "100%";
-      container.appendChild(vid);
-    } else if (part) {
-      const div = document.createElement("div");
-      div.style.whiteSpace = "pre-wrap";
-      div.textContent = part;
-      container.appendChild(div);
-    }
+  const mp4UrlRegex = /https?:\/\/[^\s<>\)"']+\.mp4(?:\?[^\s<>\)"']*)?/ig;
+  const matches = text.match(mp4UrlRegex) || [];
+  
+  const div = document.createElement("div");
+  div.style.whiteSpace = "pre-wrap";
+  div.textContent = text;
+  container.appendChild(div);
+
+  matches.forEach(url => {
+    const cleanUrl = url.replace(/[)\]."'\s]+$/, '');
+    const vid = document.createElement("video");
+    vid.src = cleanUrl;
+    vid.controls = true;
+    vid.autoplay = true;
+    vid.muted = true;
+    vid.playsInline = true;
+    vid.className = "a2img";
+    vid.style.maxHeight = "360px";
+    vid.style.width = "100%";
+    vid.style.borderRadius = "8px";
+    vid.style.marginTop = "12px";
+    container.appendChild(vid);
   });
 }
 
@@ -394,6 +426,28 @@ function renderReply(b, parts) {
   if (a2ui.length) {
     b.classList.add("rich");
     if (!renderSurface(a2ui, b)) b.appendChild(el("div", null, flattenText(a2ui) || "(no card content)"));
+
+    // Fallback: check flattened A2UI text for any mp4 URLs
+    const flat = flattenText(a2ui);
+    if (flat) {
+      const mp4Matches = flat.match(/https?:\/\/[^\s<>\)"']+\.mp4(?:\?[^\s<>\)"']*)?/ig) || [];
+      mp4Matches.forEach(url => {
+        const cleanUrl = url.replace(/[)\]."'\s]+$/, '');
+        if (!b.querySelector(`video[src="${cleanUrl}"]`)) {
+          const vid = el("video", "a2img");
+          vid.src = cleanUrl;
+          vid.controls = true;
+          vid.autoplay = true;
+          vid.muted = true;
+          vid.playsInline = true;
+          vid.style.maxHeight = "360px";
+          vid.style.width = "100%";
+          vid.style.borderRadius = "8px";
+          vid.style.marginTop = "12px";
+          b.appendChild(vid);
+        }
+      });
+    }
   }
   if (!b.childNodes.length) b.textContent = "(no response)";
   log.scrollTop = log.scrollHeight;
