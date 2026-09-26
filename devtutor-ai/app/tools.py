@@ -343,6 +343,13 @@ async def generate_topic_video(prompt: str, tool_context: ToolContext) -> dict:
         if not video_bytes:
             return {"error": "Failed to extract video bytes from output_video."}
             
+        if isinstance(video_bytes, str):
+            import base64
+            try:
+                video_bytes = base64.b64decode(video_bytes)
+            except Exception:
+                pass
+            
         mime_type = getattr(out_video, "mime_type", None) or "video/mp4"
         filename = f"video_{uuid.uuid4().hex[:8]}.mp4"
         
@@ -350,7 +357,7 @@ async def generate_topic_video(prompt: str, tool_context: ToolContext) -> dict:
         artifact_part = types.Part.from_bytes(data=video_bytes, mime_type=mime_type)
         await tool_context.save_artifact(filename=filename, artifact=artifact_part)
         
-        # (2) Upload video bytes directly to Cloud Storage bucket without local file writes
+        # (2) Upload decoded video bytes directly to Cloud Storage bucket
         storage_client = storage.Client(project=FIRESTORE_PROJECT)
         bucket = storage_client.bucket(GCS_BUCKET_NAME)
         blob = bucket.blob(filename)
